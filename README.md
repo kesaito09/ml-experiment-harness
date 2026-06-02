@@ -210,41 +210,6 @@ ml-experiment-harness/
 
 ★ = このハーネスの肝。タスクを変える時に触るのは `tasks.py` と `data.py` だけ。
 
-## エージェントチーム (.claude/agents/)
-
-実装はせず**助言だけする2人**を、Leader (メインの Claude) が起動し **SendMessage で直接議論**させる。
-CV の上振れを「本物のシグナル」か「過学習の偶然」かに分けるには、2つの独立した問いが要る:
-
-| エージェント | 担当する問い | model | 転用性 |
-|---|---|---|---|
-| **ml-methodology-expert** | 方法論的に信頼できるか？ (repeated CV / 2段階screening / リーク / per-segment診断) | opus | **そのまま転用可** |
-| **domain-expert** | ドメインの物語があるか？ (説明できない上振れは却下) | sonnet | **テンプレ** (自分のドメインに置換) |
-
-**両方 yes のときだけ「本物」と認定**する。ml-expert が domain-expert に
-「この per-segment の勝ちにドメインの物語はあるか？」と問い、取れなければ CV 上振れでも採用しない。
-これは「規律 > 打席数」（小データでは打席数自体が過学習リスク）をチーム構造にした形。
-
-domain-expert は instance 固有なので、`name` / 本文の【...】を自分のドメイン
-(NFLスカウト / 気象 / 与信 …) に置換して使う (手順は `.claude/agents/README.md`)。
-
-## 設計原則 (なぜ"AIが正しく動く"のか)
-
-1. **Single Source of Truth**: 分類・構成はコードの1箇所。派生は自動生成。
-2. **ドリフト防止**: 派生は常に再生成 + テストで stale 検出 (手動同期ゼロ)。
-3. **リーク防止の制度化**: CV fold = TE fold を runner が強制 (エージェントが間違えても構造で守る)。
-4. **制度的記憶 + 再評価**: 失敗 (ANTI_PATTERNS) と発見 (FINDINGS) を蓄積し pre-flight で必ず読む。
-   さらに**新事実が片方に入ると反対側の過去判定を再評価する** (トリガ照合) → 同じミスをせず、過去の失敗も知識更新で蘇らせる。
-
-## 自分の問題で使う
-
-1. `src/data.py` の `load_dataset` を自分のデータ読込に差し替える (規約: features + `segment` + `y`)。
-2. `experiments/EXP000/configs/child-exp000_baseline.yaml` を作り、`task:` を選ぶ
-   (分類=`classification` / 回帰=`regression`、時系列予報なら `tasks.py` の CV を `TimeSeriesSplit` に)。
-3. 必要な特徴量を `src/features.py` に `@register_feature` で足し、`feature_taxonomy.py` に分類を追加 (テストが強制)。
-4. `python -m src.runner --config ...` → 自動で記録・集約・マップ更新。
-
-ループ本体 (registry / 記録 / 制度的記憶 / 診断) は**タスクが変わっても一切変えない**。
-
 ---
 
 *出自: NFL Draft 予測コンペの実験基盤を汎用化。本リポジトリは構造を示すモックで、
