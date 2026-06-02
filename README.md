@@ -88,6 +88,8 @@ config:
 **手法 = 再利用可能な op / 実験 = YAML / 親の成果物 = OOF キャッシュ参照**。
 script に閉じ込めないので、同じ/派生実験が YAML 差し替えだけで回る。
 
+> YAML の読み方（特徴量も op も全手法が記録される点）は **[docs/YAML_GUIDE.md](docs/YAML_GUIDE.md)** 参照。
+
 ## アーキテクチャ — 制度的記憶を持つ実験ループ
 
 ```mermaid
@@ -134,6 +136,7 @@ ml-experiment-harness/
 │   └── TEMPLATE/configs/          #   新EXPの雛形
 │
 ├── docs/                          # ── ドキュメント (Claude が書く / 一部 runner 自動生成) ──
+│   ├── YAML_GUIDE.md              #   実験YAMLの読み方 (特徴量もopも全手法が記録される点)
 │   ├── ANTI_PATTERNS.md           #   制度的記憶: 失敗+理由 (🔓再評価トリガ)
 │   ├── FINDINGS.md                #   制度的記憶: 効いた施策+新事実 (⚠️失効トリガ)
 │   ├── EXP_SUMMARY.md             #   自動生成: 全実験の結果表 (手動編集禁止)
