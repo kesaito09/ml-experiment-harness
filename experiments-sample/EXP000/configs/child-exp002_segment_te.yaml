@@ -1,0 +1,45 @@
+meta:
+  exp: EXP000
+  child: child-exp002_segment_te
+  name: child-exp002_segment_te
+  description: + segment target encoding
+  parent_child: child-exp000_baseline
+  prompt: 人間のドメイン仮説/抽象指示
+config:
+  dataset: breast_cancer
+  task: classification
+  model: tree
+  stage: 1
+  parent_metric: 0.9912
+  features:
+  - name: target_encode
+    params:
+      col: segment
+      smoothing: 20
+status: DONE
+result:
+  task: classification
+  metric_name: AUC
+  metric_mean: 0.991
+  metric_std: 0.001
+  per_seed:
+  - 0.9905
+  - 0.99149
+  - 0.99008
+  - 0.99273
+  - 0.99018
+  n_seeds: 5
+  delta_vs_parent: -0.0002
+  segment_scores:
+    A:
+      n: 143
+      AUC: 0.99524
+    B:
+      n: 142
+      AUC: 0.92188
+    C:
+      n: 142
+      AUC: 0.97162
+    D:
+      n: 142
+      AUC: 0.99142

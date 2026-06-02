@@ -1,0 +1,15 @@
+meta:
+  exp: EXPNNN
+  child: child-expNNN_short
+  name: child-expNNN_short
+  description: 1行の説明
+  parent_child: null
+  prompt: 人間のドメイン仮説/抽象指示
+config:
+  dataset: breast_cancer
+  task: classification
+  model: tree
+  stage: 1
+  parent_metric: null
+  features: []
+status: TODO

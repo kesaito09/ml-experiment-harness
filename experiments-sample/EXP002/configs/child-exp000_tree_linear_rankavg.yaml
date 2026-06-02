@@ -1,0 +1,46 @@
+meta:
+  exp: EXP002
+  child: child-exp000_tree_linear_rankavg
+  name: child-exp000_tree_linear_rankavg
+  description: tree(raw)+linear(standardize) の rank平均アンサンブル
+  parent_child: null
+  prompt: 人間のドメイン仮説/抽象指示
+config:
+  dataset: breast_cancer
+  task: classification
+  model: ensemble
+  stage: 1
+  parent_metric: 0.9912
+  members:
+  - model: tree
+    features: []
+  - model: linear
+    features:
+    - standardize
+status: DONE
+result:
+  task: classification
+  metric_name: AUC
+  metric_mean: 0.99341
+  metric_std: 0.00168
+  per_seed:
+  - 0.9944
+  - 0.99434
+  - 0.99265
+  - 0.99516
+  - 0.99047
+  n_seeds: 5
+  delta_vs_parent: 0.00221
+  segment_scores:
+    A:
+      n: 143
+      AUC: 0.99762
+    B:
+      n: 142
+      AUC: 0.92997
+    C:
+      n: 142
+      AUC: 0.97325
+    D:
+      n: 142
+      AUC: 0.9951

@@ -1,0 +1,41 @@
+meta:
+  exp: EXP000
+  child: child-exp000_baseline
+  name: child-exp000_baseline
+  description: baseline (tree, 生特徴のみ)
+  parent_child: null
+  prompt: 人間のドメイン仮説/抽象指示
+config:
+  dataset: breast_cancer
+  task: classification
+  model: tree
+  stage: 1
+  parent_metric: null
+  features: []
+status: DONE
+result:
+  task: classification
+  metric_name: AUC
+  metric_mean: 0.9912
+  metric_std: 0.00136
+  per_seed:
+  - 0.99026
+  - 0.99236
+  - 0.98942
+  - 0.99313
+  - 0.99084
+  n_seeds: 5
+  delta_vs_parent: null
+  segment_scores:
+    A:
+      n: 143
+      AUC: 0.99524
+    B:
+      n: 142
+      AUC: 0.92522
+    C:
+      n: 142
+      AUC: 0.97386
+    D:
+      n: 142
+      AUC: 0.9902

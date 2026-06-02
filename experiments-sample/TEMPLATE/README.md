@@ -1,0 +1,3 @@
+# TEMPLATE
+
+新EXPの雛形。
