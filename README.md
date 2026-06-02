@@ -78,23 +78,65 @@ flowchart LR
 肝は **MEM→エージェント の戻り矢印 (pre-flight)**。新実験の前に過去の失敗と族レベルの機序を必ず読むので
 **同じ種類の失敗を繰り返さない**。これが「AI が暴走せず正しく動く環境」の正体。
 
-## コンポーネント
+## リポジトリ構成 (解説付きツリー)
 
-| ファイル | 役割 |
-|---|---|
-| `src/feature_registry.py` | `@register_feature` — YAML から名前で特徴量を呼ぶ |
-| `src/features.py` | 汎用の例示特徴量 (各 kind を代表) |
-| `src/feature_taxonomy.py` | **機械可読 SSOT**: 特徴量を kind/models/scale/leak で分類 |
-| `src/feature_map.py` | taxonomy → `docs/FEATURE_MAP.md` を自動生成 |
-| `src/tasks.py` | **分類/回帰の両 Task を定義**。YAML の `task:` で選ぶ seam |
-| `src/data.py` | サンプルデータ (breast_cancer/diabetes)。実運用はここを差し替え |
-| `src/diagnostics.py` | repeated CV + per-segment 汎化診断 |
-| `src/runner.py` | YAML→構築→CV→自動記録→集約 の心臓。CLI |
-| `docs/ANTI_PATTERNS.md` | 制度的記憶: **失敗**＋理由 (Claude が追記(自動生成でない)、pre-flight で参照) |
-| `docs/FINDINGS.md` | 制度的記憶: **効いた施策＋確認された新事実** (Claude が追記(自動生成でない)、ANTI_PATTERNS の正の対) |
-| `docs/EXP_SUMMARY.md` / `docs/FEATURE_MAP.md` | 自動生成 (手動編集禁止) |
-| `.claude/skills/feature-experiment/` | 実験プロトコルを完遂する skill (pre-flight→実装→実行→記録→再評価) |
-| `.claude/agents/` | 助言専任エージェントチーム雛形 (ml-methodology-expert + domain-expert) |
+```
+ml-experiment-harness/
+├── README.md                      # これ
+├── requirements.txt               # numpy / pandas / scikit-learn / pyyaml / pytest
+│
+├── src/                           # ── ハーネス本体 ──
+│   ├── config.py                  # SEED / N_FOLDS / STAGE1・STAGE2_SEEDS (規律の定数)
+│   ├── data.py                    # サンプルデータ読込。★実運用はここを自分のデータに差し替え
+│   ├── tasks.py                   # ★唯一のタスク固有部分: classification/regression の指標・CV・モデル
+│   ├── feature_registry.py        # @register_feature — YAML から名前で特徴量を呼ぶ
+│   ├── features.py                # 例示特徴量 (各 kind を代表)
+│   ├── feature_taxonomy.py        # ★機械可読SSOT: 特徴量を kind/models/scale/leak で分類
+│   ├── feature_map.py             # taxonomy → docs/FEATURE_MAP.md を生成
+│   ├── diagnostics.py             # repeated CV + per-segment 過学習診断
+│   └── runner.py                  # 心臓: YAML→特徴量構築→CV→自動記録→集約。CLI
+│
+├── experiments-sample/            # ── 同梱サンプル (分類) ── 利用者は experiments/ を作る
+│   ├── EXP000/configs/            #   FE探索(tree): baseline / +standardize / +segment_te
+│   ├── EXP001/configs/            #   model変更=線形 (新EXP)
+│   ├── EXP002/configs/            #   ensemble (新EXP)
+│   └── TEMPLATE/configs/          #   新EXPの雛形
+│
+├── docs/                          # ── ドキュメント (Claude が書く / 一部 runner 自動生成) ──
+│   ├── ANTI_PATTERNS.md           #   制度的記憶: 失敗+理由 (🔓再評価トリガ)
+│   ├── FINDINGS.md                #   制度的記憶: 効いた施策+新事実 (⚠️失効トリガ)
+│   ├── EXP_SUMMARY.md             #   自動生成: 全実験の結果表 (手動編集禁止)
+│   └── FEATURE_MAP.md             #   自動生成: 族×モデル適性 / 失敗の機序 (手動編集禁止)
+│
+├── tests/
+│   └── test_harness.py            # registry↔taxonomy 整合 / OOFリーク防止 / FEATURE_MAP stale 検出
+│
+└── .claude/                       # ── AI 運用層 (クローンすればそのまま効く) ──
+    ├── skills/feature-experiment/ #   実験を完遂する手順 (pre-flight→実装→実行→記録→再評価)
+    └── agents/                    #   助言専任エージェントチーム (↓ 次節)
+        ├── ml-methodology-expert.md   # 検証方法論・過学習規律 (転用可)
+        ├── domain-expert.md           # ドメイン妥当性 (テンプレ、置換用)
+        └── README.md                  # チームの思想と使い方
+```
+
+★ = このハーネスの肝。タスクを変える時に触るのは `tasks.py` と `data.py` だけ。
+
+## エージェントチーム (.claude/agents/)
+
+実装はせず**助言だけする2人**を、Leader (メインの Claude) が起動し **SendMessage で直接議論**させる。
+CV の上振れを「本物のシグナル」か「過学習の偶然」かに分けるには、2つの独立した問いが要る:
+
+| エージェント | 担当する問い | model | 転用性 |
+|---|---|---|---|
+| **ml-methodology-expert** | 方法論的に信頼できるか？ (repeated CV / 2段階screening / リーク / per-segment診断) | opus | **そのまま転用可** |
+| **domain-expert** | ドメインの物語があるか？ (説明できない上振れは却下) | sonnet | **テンプレ** (自分のドメインに置換) |
+
+**両方 yes のときだけ「本物」と認定**する。ml-expert が domain-expert に
+「この per-segment の勝ちにドメインの物語はあるか？」と問い、取れなければ CV 上振れでも採用しない。
+これは「規律 > 打席数」（小データでは打席数自体が過学習リスク）をチーム構造にした形。
+
+domain-expert は instance 固有なので、`name` / 本文の【...】を自分のドメイン
+(NFLスカウト / 気象 / 与信 …) に置換して使う (手順は `.claude/agents/README.md`)。
 
 ## 設計原則 (なぜ"AIが正しく動く"のか)
 
