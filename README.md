@@ -60,6 +60,34 @@ NFL ハーネスと同じ **EXP(大テーマ) → child-exp(個別実験)** の2
 → **同じ `standardize` が木で無効・線形で有効**。これは taxonomy の `models`/`scale` 軸が表す通り。
 特徴量を族×モデルで分類しておく価値が、ここに出る。
 
+## 実験の再利用 (op registry + OOF キャッシュ)
+
+派生実験のたびに script をコピペするのは非効率。そこで:
+
+1. **全実験は OOF を自動キャッシュ** (`experiments*/<EXP>/outputs/<child>_oof.npy`)。
+2. **手法は登録 op** (`@register_op`, `src/ops.py`) として1回だけ書く (rank_blend / weight_search …)。
+3. **派生実験は小さな YAML**: `method:` で op を、`inputs:` で親実験の OOF を参照するだけ。
+
+```yaml
+# experiments-sample/EXP003/configs/child-exp000_blend_tree_linear.yaml
+config:
+  method: rank_blend                                  # ← 登録 op
+  inputs: [EXP000/child-exp000_baseline,              # ← 親の OOF を再利用
+           EXP001/child-exp000_logreg_baseline]
+```
+
+→ blend に変えたい/重み探索したい時は **`method:` を差し替えるだけ**。再学習なし・自動記録:
+
+| 派生実験 | method | AUC | 親比 |
+|---|---|---|---|
+| EXP000 baseline (tree) | — | 0.9912 | — |
+| EXP001 baseline (linear) | — | 0.9901 | — |
+| EXP003 blend | `rank_blend` | **0.99415** | +0.0030 |
+| EXP003 wsearch | `weight_search` | **0.99436** | +0.0032 |
+
+**手法 = 再利用可能な op / 実験 = YAML / 親の成果物 = OOF キャッシュ参照**。
+script に閉じ込めないので、同じ/派生実験が YAML 差し替えだけで回る。
+
 ## アーキテクチャ — 制度的記憶を持つ実験ループ
 
 ```mermaid
@@ -93,13 +121,16 @@ ml-experiment-harness/
 │   ├── features.py                # 例示特徴量 (各 kind を代表)
 │   ├── feature_taxonomy.py        # ★機械可読SSOT: 特徴量を kind/models/scale/leak で分類
 │   ├── feature_map.py             # taxonomy → docs/FEATURE_MAP.md を生成
+│   ├── op_registry.py             # ★@register_op — YAML の method: で「手法」を呼ぶ (再利用の要)
+│   ├── ops.py                     # 登録 op: rank_blend / weight_search (1回書いて使い回す)
 │   ├── diagnostics.py             # repeated CV + per-segment 過学習診断
-│   └── runner.py                  # 心臓: YAML→特徴量構築→CV→自動記録→集約。CLI
+│   └── runner.py                  # 心臓: YAML→構築→CV→OOFキャッシュ→自動記録→集約。CLI
 │
 ├── experiments-sample/            # ── 同梱サンプル (分類) ── 利用者は experiments/ を作る
-│   ├── EXP000/configs/            #   FE探索(tree): baseline / +standardize / +segment_te
-│   ├── EXP001/configs/            #   model変更=線形 (新EXP)
+│   ├── EXP000/{configs,outputs}/  #   FE探索(tree)。outputs/ に OOF キャッシュ (*_oof.npy)
+│   ├── EXP001/{configs,outputs}/  #   model変更=線形 (新EXP)
 │   ├── EXP002/configs/            #   ensemble (新EXP)
+│   ├── EXP003/configs/            #   ★派生実験: EXP000+EXP001 の OOF を method: で再利用 (blend/weight_search)
 │   └── TEMPLATE/configs/          #   新EXPの雛形
 │
 ├── docs/                          # ── ドキュメント (Claude が書く / 一部 runner 自動生成) ──

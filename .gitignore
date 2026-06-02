@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+
+# 生成される OOF キャッシュ (再生成可)
+experiments*/**/outputs/

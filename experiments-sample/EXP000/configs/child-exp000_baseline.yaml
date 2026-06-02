@@ -29,13 +29,13 @@ result:
   segment_scores:
     A:
       n: 143
-      AUC: 0.99524
+      AUC: 0.99286
     B:
       n: 142
-      AUC: 0.92522
+      AUC: 0.9548
     C:
       n: 142
-      AUC: 0.97386
+      AUC: 0.97835
     D:
       n: 142
       AUC: 0.9902

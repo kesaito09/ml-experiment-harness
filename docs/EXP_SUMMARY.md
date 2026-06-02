@@ -10,3 +10,5 @@
 | EXP001/child-exp000_logreg_baseline | classification | linear | DONE | AUC | 0.9901 | 0.00128 |  | baseline (linear/LogReg, 生特徴) |
 | EXP001/child-exp001_logreg_standardize | classification | linear | DONE | AUC | 0.99273 | 0.00234 | +0.00263 | + standardize (線形には効く想定) |
 | EXP002/child-exp000_tree_linear_rankavg | classification | ensemble | DONE | AUC | 0.99341 | 0.00168 | +0.00221 | tree(raw)+linear(standardize) の rank平均アンサンブル |
+| EXP003/child-exp000_blend_tree_linear | classification | rank_blend | DONE | AUC | 0.99415 |  | +0.00295 | tree+linear OOF を等重み rank_blend (再利用) |
+| EXP003/child-exp001_wsearch_tree_linear | classification | weight_search | DONE | AUC | 0.99436 |  | +0.00316 | 同じ素材を weight_search で派生 (YAML差し替えだけ) |

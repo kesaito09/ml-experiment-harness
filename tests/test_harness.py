@@ -41,3 +41,26 @@ def test_feature_map_generates():
     md = generate_feature_map()
     assert "§1" in md and "§2" in md and "§3" in md
     assert "`target_encode`" in md
+
+
+def test_op_registry_and_blend():
+    """登録 op が呼べて、rank_blend が 0-1 の合成 OOF を返す (実験再利用の基盤)。"""
+    import src.ops  # noqa: F401
+    from src.op_registry import get_op, list_ops
+    assert {"rank_blend", "weight_search"} <= set(list_ops())
+    o1 = np.array([0.1, 0.9, 0.2, 0.8, 0.5])
+    o2 = np.array([0.3, 0.7, 0.1, 0.95, 0.4])
+    out = get_op("rank_blend")([o1, o2])
+    assert out.shape == (5,) and out.min() >= 0 and out.max() <= 1
+
+
+def test_weight_search_records_best_weights():
+    """weight_search が best_weights を _out に返す (記録に拾われる)。"""
+    import src.ops  # noqa: F401
+    from src.op_registry import get_op
+    y = np.array([0, 1, 0, 1, 1, 0])
+    o1 = np.array([0.2, 0.8, 0.3, 0.7, 0.9, 0.1])
+    o2 = np.array([0.4, 0.6, 0.1, 0.9, 0.5, 0.2])
+    blended, extras = get_op("weight_search")([o1, o2], y=y, task="classification", grid=6)
+    assert blended.shape == (6,)
+    assert "best_weights" in extras and len(extras["best_weights"]) == 2

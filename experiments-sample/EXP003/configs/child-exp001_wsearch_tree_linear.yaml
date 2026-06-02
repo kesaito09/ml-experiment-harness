@@ -1,0 +1,41 @@
+meta:
+  exp: EXP003
+  child: child-exp001_wsearch_tree_linear
+  name: child-exp001_wsearch_tree_linear
+  description: 同じ素材を weight_search で派生 (YAML差し替えだけ)
+  parent_child: EXP000/child-exp000_baseline
+  prompt: prior OOFを再利用
+config:
+  dataset: breast_cancer
+  task: classification
+  method: weight_search
+  inputs: &id001
+  - EXP000/child-exp000_baseline
+  - EXP001/child-exp000_logreg_baseline
+  params:
+    grid: 11
+  parent_metric: 0.9912
+status: DONE
+result:
+  task: classification
+  method: weight_search
+  inputs: *id001
+  metric_name: AUC
+  metric_mean: 0.99436
+  delta_vs_parent: 0.00316
+  segment_scores:
+    A:
+      n: 143
+      AUC: 1.0
+    B:
+      n: 142
+      AUC: 0.96317
+    C:
+      n: 142
+      AUC: 0.97713
+    D:
+      n: 142
+      AUC: 0.9951
+  best_weights:
+  - 0.588
+  - 0.412

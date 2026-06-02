@@ -19,13 +19,15 @@ import numpy as np
 import pandas as pd
 import yaml
 
-import src.features  # noqa: F401  registry を埋める
+import src.features  # noqa: F401  feature registry を埋める
+import src.ops        # noqa: F401  op registry を埋める
 from src import feature_taxonomy as ft
 from src.config import (N_FOLDS, PROJECT_ROOT, STAGE1_SEEDS, STAGE2_SEEDS,
                         SUMMARY_PATH, TARGET_COL)
 from src.data import load_dataset
 from src.diagnostics import per_segment_diagnostic, repeated_cv
 from src.feature_registry import get_feature, list_features
+from src.op_registry import get_op
 from src.tasks import get_task
 
 
@@ -82,6 +84,21 @@ def _oof_ensemble_one_seed(full, members, task, seed):
     return np.mean(ranks, axis=0)
 
 
+def _oof_path(yaml_path: Path, child: str) -> Path:
+    """この実験の OOF キャッシュ先 (experiments*/<exp>/outputs/<child>_oof.npy)。"""
+    return Path(yaml_path).parent.parent / "outputs" / f"{child}_oof.npy"
+
+
+def _load_parent_oof(ref: str) -> np.ndarray:
+    """親実験の OOF を ref='EXP000/child-exp000_baseline' で再利用ロード。"""
+    exp, child = ref.split("/")
+    hits = list(PROJECT_ROOT.glob(f"experiments*/{exp}/outputs/{child}_oof.npy"))
+    if not hits:
+        raise FileNotFoundError(
+            f"cached OOF が無い: {ref} → 親実験を先に実行してOOFを生成せよ")
+    return np.load(hits[0])
+
+
 def run_from_yaml(path: Path, rerun: bool = False) -> None:
     cfg = yaml.safe_load(Path(path).read_text())
     if cfg.get("status") == "DONE" and not rerun:
@@ -89,7 +106,37 @@ def run_from_yaml(path: Path, rerun: bool = False) -> None:
         return
     dataset = cfg["config"]["dataset"]
     full = load_dataset(dataset)
-    task = get_task(cfg["config"]["task"])        # YAML で classification / regression を選ぶ
+    task = get_task(cfg["config"]["task"])
+    y = full[TARGET_COL].to_numpy()
+    child = cfg["meta"]["child"]
+    method = cfg["config"].get("method")          # op 名 (あれば再利用パス)
+
+    # ── 再利用パス: 登録 op を inputs(親OOF) に適用 (blend / weight_search 等) ──
+    if method:
+        inputs = cfg["config"]["inputs"]
+        params = dict(cfg["config"].get("params", {}) or {})
+        params.setdefault("task", task.name)
+        oofs = [_load_parent_oof(r) for r in inputs]
+        print(f"  method={method} inputs={inputs}")
+        out = get_op(method)(oofs, y=y, **params)
+        blended, extras = out if isinstance(out, tuple) else (out, {})  # op は (oof, extras) 返却可
+        metric = round(float(task.metric(y, blended)), 5)
+        diag = per_segment_diagnostic(full, blended, task)
+        op_path = _oof_path(path, child); op_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(op_path, blended)                 # 派生元としても再利用可
+        parent = cfg["config"].get("parent_metric")
+        result = {"task": task.name, "method": method, "inputs": inputs,
+                  "metric_name": task.metric_name, "metric_mean": metric,
+                  "delta_vs_parent": (round(metric - parent, 5) if parent is not None else None),
+                  "segment_scores": diag["segment_scores"]}
+        result.update(extras)                     # weight_search の best_weights 等を記録に merge
+        cfg["status"] = "DONE"; cfg["result"] = result
+        Path(path).write_text(yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False))
+        print(f"  [{Path(path).name}] status=DONE ({method}), metric_mean={metric}")
+        write_summary()
+        return
+
+    # ── 標準パス: features + model で repeated CV ──
     features = cfg["config"].get("features", []) or []
     model_kind = cfg["config"].get("model", "tree")
     members = cfg["config"].get("members")
@@ -101,22 +148,25 @@ def run_from_yaml(path: Path, rerun: bool = False) -> None:
     print(f"  dataset={dataset} task={task.name} model={model_kind} metric={task.metric_name} "
           f"{desc_feat}")
 
-    # repeated CV (楽観バイアス排除)
-    last = {}
+    oofs_accum = []
     def one(seed):
         if model_kind == "ensemble":
             oof = _oof_ensemble_one_seed(full, members, task, seed)
         else:
             oof = _oof_one_seed(full, features, task, seed, model_kind)
-        last["oof"] = oof
-        return task.metric(full[TARGET_COL].to_numpy(), oof)
+        oofs_accum.append(oof)
+        return task.metric(y, oof)
     rcv = repeated_cv(one, seeds)
-    diag = per_segment_diagnostic(full, last["oof"], task)
+    seed_avg_oof = np.mean(oofs_accum, axis=0)     # ★ 派生実験が再利用する成果物
+    diag = per_segment_diagnostic(full, seed_avg_oof, task)
 
     for s, sc in diag["segment_scores"].items():
         print(f"    segment {s}: {sc}")
-    print(f"  [repeated CV/{rcv['n_seeds']}seed] {task.metric_name} "
-          f"{rcv['mean']} ± {rcv['std']}")
+    print(f"  [repeated CV/{rcv['n_seeds']}seed] {task.metric_name} {rcv['mean']} ± {rcv['std']}")
+
+    # OOF をキャッシュ (これで後続の blend/weight_search が inputs で参照できる)
+    oof_path = _oof_path(path, child); oof_path.parent.mkdir(parents=True, exist_ok=True)
+    np.save(oof_path, seed_avg_oof)
 
     parent = cfg["config"].get("parent_metric")
     delta = round(rcv["mean"] - parent, 5) if parent is not None else None
@@ -129,7 +179,7 @@ def run_from_yaml(path: Path, rerun: bool = False) -> None:
         "segment_scores": diag["segment_scores"],
     }
     Path(path).write_text(yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False))
-    print(f"  [{Path(path).name}] status=DONE, metric_mean={rcv['mean']}")
+    print(f"  [{Path(path).name}] status=DONE, metric_mean={rcv['mean']} (OOF cached: {oof_path.name})")
     write_summary()
 
 
@@ -144,8 +194,10 @@ def generate_summary() -> str:
             continue
         r = cfg.get("result", {}) or {}
         exp_id = f"{yf.parent.parent.name}/{yf.stem}"   # 例: EXP000/child-exp000_baseline
-        rows.append((exp_id, cfg.get("config", {}).get("task", "?"),
-                     cfg.get("config", {}).get("model", "tree"),
+        conf = cfg.get("config", {})
+        method_or_model = conf.get("method") or conf.get("model", "tree")  # op なら method を表示
+        rows.append((exp_id, conf.get("task", "?"),
+                     method_or_model,
                      cfg.get("status", "?"), r.get("metric_name", ""),
                      r.get("metric_mean", ""), r.get("metric_std", ""),
                      r.get("delta_vs_parent", ""),

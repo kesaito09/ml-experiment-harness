@@ -1,0 +1,37 @@
+meta:
+  exp: EXP003
+  child: child-exp000_blend_tree_linear
+  name: child-exp000_blend_tree_linear
+  description: tree+linear OOF を等重み rank_blend (再利用)
+  parent_child: EXP000/child-exp000_baseline
+  prompt: prior OOFを再利用
+config:
+  dataset: breast_cancer
+  task: classification
+  method: rank_blend
+  inputs: &id001
+  - EXP000/child-exp000_baseline
+  - EXP001/child-exp000_logreg_baseline
+  params: {}
+  parent_metric: 0.9912
+status: DONE
+result:
+  task: classification
+  method: rank_blend
+  inputs: *id001
+  metric_name: AUC
+  metric_mean: 0.99415
+  delta_vs_parent: 0.00295
+  segment_scores:
+    A:
+      n: 143
+      AUC: 1.0
+    B:
+      n: 142
+      AUC: 0.96205
+    C:
+      n: 142
+      AUC: 0.9759
+    D:
+      n: 142
+      AUC: 0.99387
