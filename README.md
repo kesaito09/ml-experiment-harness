@@ -88,7 +88,63 @@ config:
 **手法 = 再利用可能な op / 実験 = YAML / 親の成果物 = OOF キャッシュ参照**。
 script に閉じ込めないので、同じ/派生実験が YAML 差し替えだけで回る。
 
-> YAML の読み方（特徴量も op も全手法が記録される点）は **[docs/YAML_GUIDE.md](docs/YAML_GUIDE.md)** 参照。
+## 実験 YAML の読み方
+
+1つの YAML = **1実験の完全な記録**。**runner で動かしても script で動かしても、記録はこの同じ schema に残る**。
+
+> **最重要: 使った手法は全て YAML に記録される。** 特徴量（どの `feature`）も、合成手法（どの `op`/`method`）も、
+> その `params`・`inputs` も。だから YAML を読めば「何をしたか」が一意に分かり、再現・派生できる。
+
+**A) 特徴量 + モデルの実験（標準パス）**
+```yaml
+meta: { exp: EXP000, child: child-exp001_standardize, parent_child: child-exp000_baseline }
+config:
+  dataset: breast_cancer
+  task: classification          # classification / regression
+  model: tree                   # tree / linear / ensemble (ensemble は members も全記録)
+  parent_metric: 0.9912         # Δ 計算用
+  features:                     # ★投入した特徴量を「登録名」で全列挙 (FEATURE_MAP で素性を引ける)
+  - standardize
+  - name: target_encode
+    params: { col: segment, smoothing: 20 }   # パラメータ付きはこの形
+status: TODO
+```
+
+**B) 手法(op)の実験 — 親の OOF を再利用（再利用パス）**
+```yaml
+config:
+  method: weight_search         # ★使った手法(op)を登録名で記録 (rank_blend / weight_search…)
+  inputs:                       # ★再利用した親実験の OOF も記録
+  - EXP000/child-exp000_baseline
+  - EXP001/child-exp000_logreg_baseline
+  params: { grid: 11 }          # 手法のパラメータも記録
+  parent_metric: 0.9912
+```
+
+**result（runner が自動追記）**
+```yaml
+result:
+  metric_name: AUC
+  metric_mean: 0.99436          # repeated CV 平均 (標準) / 合成後スコア (op)
+  delta_vs_parent: 0.00316
+  segment_scores: {...}         # per-segment 診断 (過学習の偏り)
+  best_weights: [0.4, 0.6]      # ★op が返した付帯情報も記録 (weight_search 等)
+```
+
+### 全手法が記録される — このハーネスの肝
+
+| 何をした | YAML のどこ | 名前の辿り先 |
+|---|---|---|
+| 特徴量を入れた | `config.features`（登録名＋params） | `src/feature_registry.py` / `docs/FEATURE_MAP.md` |
+| モデルを選んだ | `config.model` / `config.members` | `src/tasks.py` |
+| 合成手法を使った | `config.method`（op登録名）＋`config.params` | `src/ops.py` (`@register_op`) |
+| 親成果物を再利用 | `config.inputs`（親 EXP/child） | 親の `outputs/*_oof.npy` |
+| 結果・付帯情報 | `result.*`（metric / Δ / segment / best_weights） | runner が自動追記 |
+
+→ **特徴量も op も「登録された名前」で記録される**から、YAML は実験の完全な設計図になる。
+
+**派生のしかた（早見）**: 再現＝そのまま再実行 / 特徴量追加＝`features` に足す /
+blend→重み探索＝`method` 差し替え / 別の親＝`inputs` 変更 / 分類→回帰＝`task` を `regression` に。
 
 ## アーキテクチャ — 制度的記憶を持つ実験ループ
 
@@ -136,7 +192,6 @@ ml-experiment-harness/
 │   └── TEMPLATE/configs/          #   新EXPの雛形
 │
 ├── docs/                          # ── ドキュメント (Claude が書く / 一部 runner 自動生成) ──
-│   ├── YAML_GUIDE.md              #   実験YAMLの読み方 (特徴量もopも全手法が記録される点)
 │   ├── ANTI_PATTERNS.md           #   制度的記憶: 失敗+理由 (🔓再評価トリガ)
 │   ├── FINDINGS.md                #   制度的記憶: 効いた施策+新事実 (⚠️失効トリガ)
 │   ├── EXP_SUMMARY.md             #   自動生成: 全実験の結果表 (手動編集禁止)
