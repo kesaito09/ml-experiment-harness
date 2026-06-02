@@ -33,8 +33,8 @@ user_invocable: true
 │   └── EXP00N/configs/      # child-exp YAML 群
 ├── experiments/             # 利用者が作る実験 (任意)
 ├── docs/
-│   ├── ANTI_PATTERNS.md     # 失敗 (人手書き, 🔓再評価トリガ)
-│   ├── FINDINGS.md          # 成功・新事実 (人手書き, ⚠️失効トリガ)
+│   ├── ANTI_PATTERNS.md     # 失敗 (Claude が追記(自動生成でない), 🔓再評価トリガ)
+│   ├── FINDINGS.md          # 成功・新事実 (Claude が追記(自動生成でない), ⚠️失効トリガ)
 │   ├── EXP_SUMMARY.md       # 自動生成 (手動編集禁止)
 │   └── FEATURE_MAP.md       # 自動生成 (手動編集禁止)
 └── tests/test_harness.py
@@ -175,5 +175,5 @@ PYTHONPATH=. python -m src.runner --config experiments/EXP00N/configs/child-exp{
 | **CV fold と TE fold** | 同一 (runner が同 seed で再生成) |
 | **新 FE** | `@register_feature` + **`feature_taxonomy.TAXONOMY` 追加** + `tests/` (テストが強制) |
 | **EXP_SUMMARY / FEATURE_MAP** | 自動生成 (手動編集禁止) |
-| **ANTI_PATTERNS / FINDINGS** | 人手書き、pre-flight で必ず参照、追記時に再評価クロスチェック |
+| **ANTI_PATTERNS / FINDINGS** | Claude が追記(自動生成でない)、pre-flight で必ず参照、追記時に再評価クロスチェック |
 | **task** | classification / regression を YAML で選ぶ。時系列なら `tasks.py` の CV を TimeSeriesSplit に |

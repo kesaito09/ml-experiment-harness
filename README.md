@@ -90,8 +90,8 @@ flowchart LR
 | `src/data.py` | サンプルデータ (breast_cancer/diabetes)。実運用はここを差し替え |
 | `src/diagnostics.py` | repeated CV + per-segment 汎化診断 |
 | `src/runner.py` | YAML→構築→CV→自動記録→集約 の心臓。CLI |
-| `docs/ANTI_PATTERNS.md` | 制度的記憶: **失敗**＋理由 (人手書き、pre-flight で参照) |
-| `docs/FINDINGS.md` | 制度的記憶: **効いた施策＋確認された新事実** (人手書き、ANTI_PATTERNS の正の対) |
+| `docs/ANTI_PATTERNS.md` | 制度的記憶: **失敗**＋理由 (Claude が追記(自動生成でない)、pre-flight で参照) |
+| `docs/FINDINGS.md` | 制度的記憶: **効いた施策＋確認された新事実** (Claude が追記(自動生成でない)、ANTI_PATTERNS の正の対) |
 | `docs/EXP_SUMMARY.md` / `docs/FEATURE_MAP.md` | 自動生成 (手動編集禁止) |
 | `.claude/skills/feature-experiment/` | 実験プロトコルを完遂する skill (pre-flight→実装→実行→記録→再評価) |
 | `.claude/agents/` | 助言専任エージェントチーム雛形 (ml-methodology-expert + domain-expert) |
